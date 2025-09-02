@@ -69,6 +69,13 @@ public class PollService {
         return getPollResults(pollId);
     }
 
+    public void deletePoll(Long id){
+        Poll poll = pollRepository.findById(id)
+                .orElseThrow(() -> new PollNotFoundException("Poll not found with Id: " +id));
+        poll.clearOptions();
+        pollRepository.delete(poll);
+    }
+
     public PollResponse getPollById(Long id){
         Poll poll = pollRepository.findById(id)
                 .orElseThrow(()-> new PollNotFoundException("Poll not found with Id: " +id));

@@ -31,6 +31,8 @@ public class Poll {
     @OneToMany(mappedBy = "poll", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<Option> options;
 
-
+    public void clearOptions(){
+        options.clear();
+    }
 
 }
