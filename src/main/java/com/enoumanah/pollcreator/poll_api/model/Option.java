@@ -9,10 +9,7 @@ import org.springframework.data.annotation.Version;
 @Entity
 @NoArgsConstructor
 @Getter @Setter
-@Table(indexes = {
-        @Index(name = "idx_option_poll_id", columnList = "poll_id"),
-        @Index(name = "idx_option_votes", columnList = "votes")
-})
+@Table(name = "poll_option")
 public class Option {
 
     @Id
