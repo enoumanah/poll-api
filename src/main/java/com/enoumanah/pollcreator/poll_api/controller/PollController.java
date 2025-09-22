@@ -6,13 +6,14 @@ import com.enoumanah.pollcreator.poll_api.dto.PollResultsResponse;
 import com.enoumanah.pollcreator.poll_api.dto.VoteRequest;
 import com.enoumanah.pollcreator.poll_api.service.PollService;
 import jakarta.validation.Valid;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-@CrossOrigin(origins = "*")  // Restrict to specific origins in production, e.g., "http://localhost:3000"
+import java.util.List;
+
+@CrossOrigin(origins = "*") // Update to Vercel URL in prod
 @RestController
 @RequestMapping("/api/polls")
 public class PollController {
@@ -24,36 +25,40 @@ public class PollController {
     }
 
     @PostMapping
-    public ResponseEntity<PollResponse> createPoll(@Valid @RequestBody CreatePollRequest pollRequest) {
-        return new ResponseEntity<>(pollService.createPoll(pollRequest), HttpStatus.CREATED);
+    public ResponseEntity<PollResponse> createPoll(@Valid @RequestBody CreatePollRequest request, Authentication authentication) {
+        return new ResponseEntity<>(pollService.createPoll(request, authentication), HttpStatus.CREATED);
     }
 
-    @PostMapping("/{id}/votes")
-    public ResponseEntity<PollResultsResponse> voteOnOption(
-            @PathVariable Long id,
-            @Valid @RequestBody VoteRequest request) {
-        pollService.voteOnOption(id, request);
-        return ResponseEntity.ok(pollService.getPollResults(id));
-    }
-
-    @GetMapping
-    public ResponseEntity<Page<PollResponse>> getAllPolls(Pageable pageable) {
-        return ResponseEntity.ok(pollService.getAllPolls(pageable));
+    @PostMapping("/{id}/vote")
+    public ResponseEntity<Void> voteOnOption(@PathVariable String id, @Valid @RequestBody VoteRequest request, Authentication authentication) {
+        pollService.voteOnOption(id, request, authentication);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<PollResponse> getPollById(@PathVariable Long id) {
-        return ResponseEntity.ok(pollService.getPollById(id));
+    public ResponseEntity<PollResponse> getPollById(@PathVariable String id, Authentication authentication) {
+        return ResponseEntity.ok(pollService.getPollById(id, authentication));
     }
 
-    @GetMapping("/{id}/results")
-    public ResponseEntity<PollResultsResponse> getPollResults(@PathVariable Long id) {
-        return ResponseEntity.ok(pollService.getPollResults(id));
+    @GetMapping
+    public ResponseEntity<List<PollResponse>> getAllPolls(Authentication authentication) {
+        return ResponseEntity.ok(pollService.getAllPolls(authentication));
+    }
+
+    @GetMapping("/share/{shareLink}")
+    public ResponseEntity<PollResponse> getPollByShareLink(@PathVariable String shareLink) {
+        return ResponseEntity.ok(pollService.getPollByShareLink(shareLink));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deletePoll(@PathVariable Long id){
-        pollService.deletePoll(id);
+    public ResponseEntity<Void> deletePoll(@PathVariable String id, Authentication authentication) {
+        pollService.deletePoll(id, authentication);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{id}/results")
+    public ResponseEntity<PollResultsResponse> getPollResults(@PathVariable String id) {
+        // Implement results calculation as before
+        return ResponseEntity.ok(pollService.getPollResults(id));
     }
 }

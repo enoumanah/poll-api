@@ -1,20 +1,24 @@
 package com.enoumanah.pollcreator.poll_api.service;
 
-
-import com.enoumanah.pollcreator.poll_api.dto.*;
+import com.enoumanah.pollcreator.poll_api.dto.CreatePollRequest;
+import com.enoumanah.pollcreator.poll_api.dto.PollResponse;
+import com.enoumanah.pollcreator.poll_api.dto.PollResultsResponse;
+import com.enoumanah.pollcreator.poll_api.dto.VoteRequest;
+import com.enoumanah.pollcreator.poll_api.exception.PollNotFoundException;
 import com.enoumanah.pollcreator.poll_api.exception.InvalidVoteException;
 import com.enoumanah.pollcreator.poll_api.exception.OptionNotFoundException;
-import com.enoumanah.pollcreator.poll_api.exception.PollNotFoundException;
 import com.enoumanah.pollcreator.poll_api.model.Option;
 import com.enoumanah.pollcreator.poll_api.model.Poll;
+import com.enoumanah.pollcreator.poll_api.model.Vote;
 import com.enoumanah.pollcreator.poll_api.repository.OptionRepository;
 import com.enoumanah.pollcreator.poll_api.repository.PollRepository;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
+import com.enoumanah.pollcreator.poll_api.repository.VoteRepository;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -22,106 +26,121 @@ public class PollService {
 
     private final PollRepository pollRepository;
     private final OptionRepository optionRepository;
+    private final VoteRepository voteRepository;
 
-    public PollService(PollRepository pollRepository, OptionRepository optionRepository) {
+    public PollService(PollRepository pollRepository, OptionRepository optionRepository, VoteRepository voteRepository) {
         this.pollRepository = pollRepository;
         this.optionRepository = optionRepository;
+        this.voteRepository = voteRepository;
     }
 
-
     @Transactional
-    public PollResponse createPoll(CreatePollRequest request){
+    public PollResponse createPoll(CreatePollRequest request, Authentication authentication) {
+        String ownerId = authentication.getPrincipal().toString();  // User ID from JWT
+
         Poll poll = new Poll();
         poll.setQuestion(request.getQuestion());
-
+        poll.setVisibility(request.getVisibility() != null ? request.getVisibility() : "public");
+        poll.setOwnerId(ownerId);
+        poll.generateShareLinkIfPrivate();
         poll = pollRepository.save(poll);
 
-        Poll finalPoll = poll;
         List<Option> options = request.getOptions().stream()
                 .map(optText -> {
                     Option option = new Option();
                     option.setText(optText);
-                    option.setVotes(0L);
-                    option.setPoll(finalPoll);
+                    option.setPollId(poll.getId());
                     return option;
-                }).collect(Collectors.toList());
+                })
+                .collect(Collectors.toList());
 
-        options = optionRepository.saveAll(options);
-
+        optionRepository.saveAll(options);
         poll.setOptions(options);
+
         return mapToPollResponse(poll);
     }
 
     @Transactional
-    public PollResultsResponse voteOnOption(Long pollId, VoteRequest voteRequest){
-        Poll poll = pollRepository.findById(pollId)
-                .orElseThrow(() -> new PollNotFoundException("Poll not found with Id: " + pollId));
-        Option option = optionRepository.findById(voteRequest.getOptionId())
-                .orElseThrow(() -> new OptionNotFoundException("Options not found with Id: " + voteRequest.getOptionId()));
+    public void voteOnOption(String pollId, VoteRequest request, Authentication authentication) {
+        String userId = authentication.getPrincipal().toString();
 
-        if (!option.getPoll().getId().equals(pollId)){
+        Poll poll = pollRepository.findById(pollId)
+                .orElseThrow(() -> new PollNotFoundException("Poll not found with ID: " + pollId));
+
+        Option option = optionRepository.findById(request.getOptionId())
+                .orElseThrow(() -> new OptionNotFoundException("Option not found with ID: " + request.getOptionId()));
+
+        if (!option.getPollId().equals(pollId)) {
             throw new InvalidVoteException("Option does not belong to this poll");
+        }
+
+        if (voteRepository.findByPollIdAndUserId(pollId, userId) != null) {
+            throw new InvalidVoteException("User has already voted on this poll");
         }
 
         option.setVotes(option.getVotes() + 1);
         optionRepository.save(option);
 
-        return getPollResults(pollId);
+        Vote vote = new Vote();
+        vote.setPollId(pollId);
+        vote.setOptionId(option.getId());
+        vote.setUserId(userId);
+        voteRepository.save(vote);
     }
 
-    public void deletePoll(Long id){
+    public PollResponse getPollById(String id, Authentication authentication) {
         Poll poll = pollRepository.findById(id)
-                .orElseThrow(() -> new PollNotFoundException("Poll not found with Id: " +id));
-        poll.clearOptions();
-        pollRepository.delete(poll);
-    }
+                .orElseThrow(() -> new PollNotFoundException("Poll not found with ID: " + id));
 
-    public PollResponse getPollById(Long id){
-        Poll poll = pollRepository.findById(id)
-                .orElseThrow(()-> new PollNotFoundException("Poll not found with Id: " +id));
+        if ("private".equals(poll.getVisibility()) && (authentication == null || !poll.getOwnerId().equals(authentication.getPrincipal().toString()))) {
+            throw new PollNotFoundException("Private poll - unauthorized access");
+        }
+
         return mapToPollResponse(poll);
     }
 
-    public Page<PollResponse> getAllPolls(Pageable pageable) {
-        Page<Poll> polls = pollRepository.findAll(pageable);
-        return polls.map(this::mapToPollResponse);
+    public List<PollResponse> getAllPolls(Authentication authentication) {
+        return pollRepository.findByVisibility("public").stream()
+                .map(this::mapToPollResponse)
+                .collect(Collectors.toList());
     }
 
-    public PollResultsResponse getPollResults(Long id){
+    public PollResponse getPollByShareLink(String shareLink) {
+        Poll poll = pollRepository.findByShareLink(shareLink);
+        if (poll == null) {
+            throw new PollNotFoundException("Poll not found with share link: " + shareLink);
+        }
+        return mapToPollResponse(poll);
+    }
+
+    @Transactional
+    public void deletePoll(String id, Authentication authentication) {
+        String userId = authentication.getPrincipal().toString();
+
         Poll poll = pollRepository.findById(id)
-                .orElseThrow(()-> new PollNotFoundException("Poll not found with Id: " +id));
+                .orElseThrow(() -> new PollNotFoundException("Poll not found with ID: " + id));
 
-        long totalVotes = poll.getOptions().stream().mapToLong(Option::getVotes).sum();
+        if (!poll.getOwnerId().equals(userId)) {
+            throw new RuntimeException("Unauthorized to delete this poll");
+        }
 
-        PollResultsResponse response = new PollResultsResponse();
-        response.setQuestion(poll.getQuestion());
-        response.setOptions(poll.getOptions().stream()
-                .map(option -> {
-                    PollResultsResponse.OptionResult result = new PollResultsResponse.OptionResult();
-                    result.setText(option.getText());
-                    result.setVotes(option.getVotes());
-                    result.setPercentage(totalVotes > 0 ? (option.getVotes() * 100 / totalVotes) : 0.0);
-                    return result;
-                }).collect(Collectors.toList()));
-
-        return response;
+        pollRepository.delete(poll);
     }
 
-    private PollResponse mapToPollResponse(Poll poll){
+    private PollResponse mapToPollResponse(Poll poll) {
         PollResponse response = new PollResponse();
         response.setId(poll.getId());
         response.setCreatedAt(poll.getCreatedAt());
         response.setQuestion(poll.getQuestion());
         response.setOptions(poll.getOptions().stream()
-                .map(option -> {
-                    OptionResponse optionResponse = new OptionResponse();
-                    optionResponse.setId(option.getId());
-                    optionResponse.setText(option.getText());
-                    optionResponse.setVotes(option.getVotes());
-                    return optionResponse;
-                }).collect(Collectors.toList()));
-
+                .map(opt -> {
+                    OptionResponse optRes = new OptionResponse();
+                    optRes.setId(opt.getId());
+                    optRes.setText(opt.getText());
+                    optRes.setVotes(opt.getVotes());
+                    return optRes;
+                })
+                .collect(Collectors.toList()));
         return response;
     }
-
 }
