@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
@@ -14,14 +15,16 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final String jwtSecret;
+    private final UserDetailsService userDetailsService;
 
-    public SecurityConfig(@Value("${app.jwt.secret}") String jwtSecret) {
+    public SecurityConfig(@Value("${app.jwt.secret}") String jwtSecret, UserDetailsService userDetailsService) {
         this.jwtSecret = jwtSecret;
+        this.userDetailsService = userDetailsService;
     }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        JwtAuthenticationFilter jwtFilter = new JwtAuthenticationFilter(jwtSecret);
+        JwtAuthenticationFilter jwtFilter = new JwtAuthenticationFilter(jwtSecret, userDetailsService);
         http
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
