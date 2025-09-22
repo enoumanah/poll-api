@@ -20,7 +20,11 @@ public class MongoConfig {
         ConnectionString connectionString = new ConnectionString(mongoUri);
         MongoClientSettings settings = MongoClientSettings.builder()
                 .applyConnectionString(connectionString)
-                .applyToSslSettings(builder -> builder.enabled(true).invalidHostNameAllowed(false))
+                .applyToSslSettings(builder -> {
+                    builder.enabled(true);
+                    builder.invalidHostNameAllowed(false);
+                })
+                .applyToSocketSettings(builder -> builder.connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS))
                 .build();
         return MongoClients.create(settings);
     }
