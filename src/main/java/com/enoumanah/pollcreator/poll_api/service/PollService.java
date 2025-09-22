@@ -1,9 +1,6 @@
 package com.enoumanah.pollcreator.poll_api.service;
 
-import com.enoumanah.pollcreator.poll_api.dto.CreatePollRequest;
-import com.enoumanah.pollcreator.poll_api.dto.PollResponse;
-import com.enoumanah.pollcreator.poll_api.dto.PollResultsResponse;
-import com.enoumanah.pollcreator.poll_api.dto.VoteRequest;
+import com.enoumanah.pollcreator.poll_api.dto.*;
 import com.enoumanah.pollcreator.poll_api.exception.PollNotFoundException;
 import com.enoumanah.pollcreator.poll_api.exception.InvalidVoteException;
 import com.enoumanah.pollcreator.poll_api.exception.OptionNotFoundException;
@@ -45,11 +42,12 @@ public class PollService {
         poll.generateShareLinkIfPrivate();
         poll = pollRepository.save(poll);
 
+        Poll finalPoll = poll;
         List<Option> options = request.getOptions().stream()
                 .map(optText -> {
                     Option option = new Option();
                     option.setText(optText);
-                    option.setPollId(poll.getId());
+                    option.setPollId(finalPoll.getId());
                     return option;
                 })
                 .collect(Collectors.toList());
@@ -125,6 +123,26 @@ public class PollService {
         }
 
         pollRepository.delete(poll);
+    }
+
+    public PollResultsResponse getPollResults(String id) {
+        Poll poll = pollRepository.findById(id)
+                .orElseThrow(() -> new PollNotFoundException("Poll not found with ID: " + id));
+
+        long totalVotes = poll.getOptions().stream().mapToLong(Option::getVotes).sum();
+
+        PollResultsResponse response = new PollResultsResponse();
+        response.setQuestion(poll.getQuestion());
+        response.setOptions(poll.getOptions().stream()
+                .map(opt -> {
+                    PollResultsResponse.OptionResult res = new PollResultsResponse.OptionResult();
+                    res.setText(opt.getText());
+                    res.setVotes(opt.getVotes());
+                    res.setPercentage(totalVotes > 0 ? (opt.getVotes() * 100.0 / totalVotes) : 0.0);
+                    return res;
+                })
+                .collect(Collectors.toList()));
+        return response;
     }
 
     private PollResponse mapToPollResponse(Poll poll) {

@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class OptionResponse {
 
-    private Long id;
+    private String id;
     private String text;
     private Long votes;
 

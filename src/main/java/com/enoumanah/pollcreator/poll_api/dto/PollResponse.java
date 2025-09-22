@@ -10,7 +10,7 @@ import java.util.List;
 @NoArgsConstructor
 public class PollResponse {
 
-    private Long id;
+    private String id;
     private Instant createdAt;
     private String question;
     private List<OptionResponse> options;

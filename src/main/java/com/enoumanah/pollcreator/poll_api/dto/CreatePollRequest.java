@@ -18,4 +18,6 @@ public class CreatePollRequest {
     @Size(min = 2, message = "At least 2 options are required")
     private List<@NotBlank(message = "Options cannot be blank") String> options;
 
+    private String visibility;
+
 }

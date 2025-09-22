@@ -11,6 +11,6 @@ public class VoteRequest {
 
     @NotNull(message = "Option Id cannot be null")
     @Min(value = 1, message = "Option Id must at least be 1")
-    private Long optionId;
+    private String optionId;
 
 }
