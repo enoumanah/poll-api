@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@CrossOrigin(origins = "*") // Update to Vercel URL in prod
 @RestController
 @RequestMapping("/api/polls")
 public class PollController {
