@@ -14,8 +14,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.Principal;
 import java.util.List;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -25,6 +25,7 @@ public class PollService {
     private final OptionRepository optionRepository;
     private final VoteRepository voteRepository;
 
+    // It's better to explicitly define the constructor
     public PollService(PollRepository pollRepository, OptionRepository optionRepository, VoteRepository voteRepository) {
         this.pollRepository = pollRepository;
         this.optionRepository = optionRepository;
@@ -33,7 +34,7 @@ public class PollService {
 
     @Transactional
     public PollResponse createPoll(CreatePollRequest request, Authentication authentication) {
-        String ownerId = authentication.getPrincipal().toString();  // User ID from JWT
+        String ownerId = authentication.getPrincipal().toString();
 
         Poll poll = new Poll();
         poll.setQuestion(request.getQuestion());
@@ -86,23 +87,26 @@ public class PollService {
         voteRepository.save(vote);
     }
 
-    public PollResponse getPollById(String id, Authentication authentication) {
+    public PollResponse getPollById(String id, Principal principal) {
         Poll poll = pollRepository.findById(id)
                 .orElseThrow(() -> new PollNotFoundException("Poll not found with ID: " + id));
 
-        if ("private".equals(poll.getVisibility()) && (authentication == null || !poll.getOwnerId().equals(authentication.getPrincipal().toString()))) {
-            throw new PollNotFoundException("Private poll - unauthorized access");
+        if ("private".equals(poll.getVisibility())) {
+            if (principal == null || !poll.getOwnerId().equals(principal.getName())) {
+                throw new PollNotFoundException("Private poll - unauthorized access");
+            }
         }
 
         return mapToPollResponse(poll);
     }
 
-    public List<PollResponse> getAllPolls(Authentication authentication) {
+    public List<PollResponse> getAllPublicPolls() {
         return pollRepository.findByVisibility("public").stream()
                 .map(this::mapToPollResponse)
                 .collect(Collectors.toList());
     }
 
+    // THIS IS THE MISSING METHOD
     public PollResponse getPollByShareLink(String shareLink) {
         Poll poll = pollRepository.findByShareLink(shareLink);
         if (poll == null) {

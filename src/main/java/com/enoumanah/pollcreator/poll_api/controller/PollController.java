@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.security.Principal; // Import Principal
 import java.util.List;
 
 @RestController
@@ -35,13 +36,13 @@ public class PollController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<PollResponse> getPollById(@PathVariable String id, Authentication authentication) {
-        return ResponseEntity.ok(pollService.getPollById(id, authentication));
+    public ResponseEntity<PollResponse> getPollById(@PathVariable String id, Principal principal) { // Use Principal
+        return ResponseEntity.ok(pollService.getPollById(id, principal)); // Pass principal to service
     }
 
     @GetMapping
-    public ResponseEntity<List<PollResponse>> getAllPolls(Authentication authentication) {
-        return ResponseEntity.ok(pollService.getAllPolls(authentication));
+    public ResponseEntity<List<PollResponse>> getAllPolls() { // Remove Authentication from signature
+        return ResponseEntity.ok(pollService.getAllPublicPolls()); // Call a new service method
     }
 
     @GetMapping("/share/{shareLink}")
@@ -57,7 +58,6 @@ public class PollController {
 
     @GetMapping("/{id}/results")
     public ResponseEntity<PollResultsResponse> getPollResults(@PathVariable String id) {
-        // Implement results calculation as before
         return ResponseEntity.ok(pollService.getPollResults(id));
     }
 }
