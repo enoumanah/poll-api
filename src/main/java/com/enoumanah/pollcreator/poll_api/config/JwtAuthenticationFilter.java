@@ -40,9 +40,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 SecurityContextHolder.getContext().setAuthentication(
                         new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities()));
             } catch (Exception e) {
-                // Log invalid token
+                // Log invalid token, but don't block
             }
         }
         filterChain.doFilter(request, response);
+    }
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        return request.getServletPath().startsWith("/api/auth");
     }
 }
