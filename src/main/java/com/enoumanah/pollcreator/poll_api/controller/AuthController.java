@@ -4,11 +4,9 @@ import com.enoumanah.pollcreator.poll_api.dto.LoginRequest;
 import com.enoumanah.pollcreator.poll_api.model.User;
 import com.enoumanah.pollcreator.poll_api.service.AuthService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
+@CrossOrigin(origins = {"https://poll-scribe-63.lovable.app", "http://localhost:5173"}, allowCredentials = "true")
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
