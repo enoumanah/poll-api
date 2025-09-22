@@ -1,6 +1,6 @@
 package com.enoumanah.pollcreator.poll_api.dto;
 
-import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank; // Import @NotBlank
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -9,8 +9,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class VoteRequest {
 
-    @NotNull(message = "Option Id cannot be null")
-    @Min(value = 1, message = "Option Id must at least be 1")
+    // The @NotNull is redundant since @NotBlank checks for null, empty, and whitespace-only strings.
+    // We'll keep it simple with just @NotBlank.
+    @NotBlank(message = "Option Id cannot be blank")
     private String optionId;
 
 }
