@@ -4,6 +4,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.DBRef; // Import this
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 
@@ -22,6 +23,7 @@ public class Poll {
     @Field("question")
     private String question;
 
+    @DBRef
     @Field("options")
     private List<Option> options;
 

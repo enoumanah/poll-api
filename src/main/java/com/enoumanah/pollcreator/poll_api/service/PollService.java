@@ -25,7 +25,6 @@ public class PollService {
     private final OptionRepository optionRepository;
     private final VoteRepository voteRepository;
 
-    // It's better to explicitly define the constructor
     public PollService(PollRepository pollRepository, OptionRepository optionRepository, VoteRepository voteRepository) {
         this.pollRepository = pollRepository;
         this.optionRepository = optionRepository;
@@ -41,6 +40,8 @@ public class PollService {
         poll.setVisibility(request.getVisibility() != null ? request.getVisibility() : "public");
         poll.setOwnerId(ownerId);
         poll.generateShareLinkIfPrivate();
+
+        // Save the poll first to generate its ID
         poll = pollRepository.save(poll);
 
         Poll finalPoll = poll;
@@ -53,11 +54,16 @@ public class PollService {
                 })
                 .collect(Collectors.toList());
 
+        // Save the options to generate their IDs
         optionRepository.saveAll(options);
+
+        // Now, set the options on the poll and save it again to create the references
         poll.setOptions(options);
+        pollRepository.save(poll);
 
         return mapToPollResponse(poll);
     }
+
 
     @Transactional
     public void voteOnOption(String pollId, VoteRequest request, Authentication authentication) {
