@@ -1,7 +1,11 @@
 package com.enoumanah.pollcreator.poll_api.repository;
 
 import com.enoumanah.pollcreator.poll_api.model.Poll;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.mongodb.repository.MongoRepository;
 
-public interface PollRepository extends JpaRepository<Poll, Long> {
+import java.util.List;
+
+public interface PollRepository extends MongoRepository<Poll, String> {
+    List<Poll> findByVisibility(String visibility);
+    Poll findByShareLink(String shareLink);
 }

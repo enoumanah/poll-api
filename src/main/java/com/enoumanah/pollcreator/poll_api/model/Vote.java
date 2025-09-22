@@ -7,20 +7,25 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 
-@Document(collection = "options")
+import java.time.Instant;
+
+@Document(collection = "votes")
 @NoArgsConstructor
 @Getter @Setter
-public class Option {
+public class Vote {
 
     @Id
     private String id;
 
-    @Field("text")
-    private String text;
-
-    @Field("votes")
-    private long votes = 0L;
-
     @Field("poll_id")
-    private String pollId;  // Reference to poll
+    private String pollId;
+
+    @Field("option_id")
+    private String optionId;
+
+    @Field("user_id")
+    private String userId;
+
+    @Field("voted_at")
+    private Instant votedAt = Instant.now();
 }

@@ -1,38 +1,45 @@
 package com.enoumanah.pollcreator.poll_api.model;
 
-import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.CreationTimestamp;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.Field;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
-@Entity
+@Document(collection = "polls")
 @NoArgsConstructor
 @Getter @Setter
-@Table(indexes = {
-        @Index(name = "idx_poll_created_at", columnList = "createdAt")
-})
 public class Poll {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private String id;
 
-    @Column(nullable = false, updatable = false)
-    @CreationTimestamp
-    private Instant createdAt;
-
-    @Column(nullable = false)
+    @Field("question")
     private String question;
 
-    @OneToMany(mappedBy = "poll", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Field("options")
     private List<Option> options;
 
-    public void clearOptions(){
-        options.clear();
-    }
+    @Field("visibility")
+    private String visibility = "public";
 
+    @Field("share_link")
+    private String shareLink;
+
+    @Field("owner_id")
+    private String ownerId;
+
+    @Field("created_at")
+    private Instant createdAt = Instant.now();
+
+    public void generateShareLinkIfPrivate() {
+        if ("private".equals(visibility)) {
+            this.shareLink = UUID.randomUUID().toString();
+        }
+    }
 }

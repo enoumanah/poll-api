@@ -7,20 +7,25 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 
-@Document(collection = "options")
+import java.time.Instant;
+
+@Document(collection = "users")
 @NoArgsConstructor
 @Getter @Setter
-public class Option {
+public class User {
 
     @Id
     private String id;
 
-    @Field("text")
-    private String text;
+    @Field("username")
+    private String username;
 
-    @Field("votes")
-    private long votes = 0L;
+    @Field("password")
+    private String password;  // Hashed
 
-    @Field("poll_id")
-    private String pollId;  // Reference to poll
+    @Field("email")
+    private String email;
+
+    @Field("created_at")
+    private Instant createdAt = Instant.now();
 }
