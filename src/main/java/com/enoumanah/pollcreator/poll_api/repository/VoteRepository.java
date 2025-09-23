@@ -8,4 +8,6 @@ import java.util.List;
 public interface VoteRepository extends MongoRepository<Vote, String> {
     Vote findByPollIdAndUserId(String pollId, String userId);
     List<Vote> findAllByUserId(String userId);
+    // Add this method to find all votes for a poll to delete them
+    List<Vote> findAllByPollId(String pollId);
 }

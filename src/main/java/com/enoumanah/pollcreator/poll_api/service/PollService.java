@@ -13,6 +13,7 @@ import com.enoumanah.pollcreator.poll_api.repository.PollRepository;
 import com.enoumanah.pollcreator.poll_api.repository.UserRepository;
 import com.enoumanah.pollcreator.poll_api.repository.VoteRepository;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,18 +38,28 @@ public class PollService {
         this.userRepository = userRepository;
     }
 
+    // Helper method to get user by principal
+    private User getUserByPrincipal(Principal principal) {
+        String username = principal.getName();
+        User user = userRepository.findByUsername(username);
+        if (user == null) {
+            throw new UsernameNotFoundException("User not found with username: " + username);
+        }
+        return user;
+    }
+
     @Transactional
     public PollResponse createPoll(CreatePollRequest request, Authentication authentication) {
-        String username = authentication.getName();
-        User user = userRepository.findByUsername(username);
+        User user = getUserByPrincipal(authentication);
 
         Poll poll = new Poll();
         poll.setQuestion(request.getQuestion());
         poll.setVisibility(request.getVisibility() != null ? request.getVisibility() : "public");
-        poll.setOwnerId(user.getId()); // Store the user's unique ID
-        poll.setOwnerUsername(username); // Store the username for display
+        poll.setOwnerId(user.getId());
+        poll.setOwnerUsername(user.getUsername());
         poll.generateShareLinkIfPrivate();
 
+        // Save poll first to get an ID
         poll = pollRepository.save(poll);
 
         Poll finalPoll = poll;
@@ -61,36 +72,23 @@ public class PollService {
                 })
                 .collect(Collectors.toList());
 
-        optionRepository.saveAll(options);
-
-        poll.setOptions(options);
-        pollRepository.save(poll);
+        List<Option> savedOptions = optionRepository.saveAll(options);
+        poll.setOptions(savedOptions);
 
         return mapToPollResponse(poll);
     }
 
     public List<PollResponse> getDashboardPolls(Principal principal) {
-        List<Poll> publicPolls = pollRepository.findByVisibility("public");
-
-        // Find the user by their username to get their unique ID
-        User user = userRepository.findByUsername(principal.getName());
-
-        // Use the user's ID to find the polls they own
-        List<Poll> userPolls = (user != null) ? pollRepository.findByOwnerId(user.getId()) : new ArrayList<>();
-
-        List<Poll> dashboardPolls = Stream.concat(publicPolls.stream(), userPolls.stream())
-                .distinct()
-                .collect(Collectors.toList());
-
-        return dashboardPolls.stream()
+        User user = getUserByPrincipal(principal);
+        List<Poll> userPolls = pollRepository.findByOwnerId(user.getId());
+        return userPolls.stream()
                 .map(this::mapToPollResponse)
                 .collect(Collectors.toList());
     }
 
     @Transactional
     public void voteOnOption(String pollId, VoteRequest request, Authentication authentication) {
-        String username = authentication.getName();
-        User user = userRepository.findByUsername(username);
+        User user = getUserByPrincipal(authentication);
 
         Poll poll = pollRepository.findById(pollId)
                 .orElseThrow(() -> new PollNotFoundException("Poll not found with ID: " + pollId));
@@ -106,13 +104,14 @@ public class PollService {
             throw new InvalidVoteException("User has already voted on this poll");
         }
 
+        // Atomically increment the vote count
         option.setVotes(option.getVotes() + 1);
         optionRepository.save(option);
 
         Vote vote = new Vote();
         vote.setPollId(pollId);
         vote.setOptionId(option.getId());
-        vote.setUserId(user.getId()); // Store the user's unique ID
+        vote.setUserId(user.getId());
         voteRepository.save(vote);
     }
 
@@ -120,10 +119,13 @@ public class PollService {
         Poll poll = pollRepository.findById(id)
                 .orElseThrow(() -> new PollNotFoundException("Poll not found with ID: " + id));
 
-        if ("private".equals(poll.getVisibility())) {
-            if (principal == null || !poll.getOwnerUsername().equals(principal.getName())) {
+        if ("private".equals(poll.getVisibility()) && principal != null) {
+            User user = getUserByPrincipal(principal);
+            if (!poll.getOwnerId().equals(user.getId())) {
                 throw new PollNotFoundException("Private poll - unauthorized access");
             }
+        } else if ("private".equals(poll.getVisibility()) && principal == null) {
+            throw new PollNotFoundException("Private poll - unauthorized access");
         }
         return mapToPollResponse(poll);
     }
@@ -144,9 +146,7 @@ public class PollService {
 
     @Transactional
     public void deletePoll(String id, Authentication authentication) {
-        String username = authentication.getName();
-        User user = userRepository.findByUsername(username);
-
+        User user = getUserByPrincipal(authentication);
         Poll poll = pollRepository.findById(id)
                 .orElseThrow(() -> new PollNotFoundException("Poll not found with ID: " + id));
 
@@ -154,6 +154,19 @@ public class PollService {
             throw new RuntimeException("Unauthorized to delete this poll");
         }
 
+        // *** FIX 1: EXPLICITLY DELETE RELATED DOCUMENTS ***
+        // 1. Delete all votes associated with this poll
+        List<Vote> votes = voteRepository.findAllByPollId(id);
+        if (!votes.isEmpty()) {
+            voteRepository.deleteAll(votes);
+        }
+
+        // 2. Delete all options associated with this poll
+        if (poll.getOptions() != null && !poll.getOptions().isEmpty()) {
+            optionRepository.deleteAll(poll.getOptions());
+        }
+
+        // 3. Finally, delete the poll itself
         pollRepository.delete(poll);
     }
 
@@ -161,49 +174,25 @@ public class PollService {
         Poll poll = pollRepository.findById(id)
                 .orElseThrow(() -> new PollNotFoundException("Poll not found with ID: " + id));
 
-        long totalVotes = (poll.getOptions() != null) ? poll.getOptions().stream().mapToLong(Option::getVotes).sum() : 0;
+        List<Option> options = poll.getOptions() != null ? poll.getOptions() : new ArrayList<>();
+        long totalVotes = options.stream().mapToLong(Option::getVotes).sum();
 
         PollResultsResponse response = new PollResultsResponse();
         response.setQuestion(poll.getQuestion());
-        if (poll.getOptions() != null) {
-            response.setOptions(poll.getOptions().stream()
-                    .map(opt -> {
-                        PollResultsResponse.OptionResult res = new PollResultsResponse.OptionResult();
-                        res.setText(opt.getText());
-                        res.setVotes(opt.getVotes());
-                        res.setPercentage(totalVotes > 0 ? (opt.getVotes() * 100.0 / totalVotes) : 0.0);
-                        return res;
-                    })
-                    .collect(Collectors.toList()));
-        } else {
-            response.setOptions(new ArrayList<>());
-        }
+
+        response.setOptions(options.stream()
+                .map(opt -> {
+                    PollResultsResponse.OptionResult res = new PollResultsResponse.OptionResult();
+                    res.setText(opt.getText());
+                    res.setVotes(opt.getVotes());
+                    // *** FIX 2: PREVENT DIVISION BY ZERO ***
+                    // Only calculate percentage if totalVotes > 0, otherwise it's 0.0
+                    res.setPercentage(totalVotes > 0 ? ((double) opt.getVotes() / totalVotes) * 100.0 : 0.0);
+                    return res;
+                })
+                .collect(Collectors.toList()));
+
         return response;
-    }
-
-    public List<PollResponse> getUserActivityPolls(Principal principal) {
-        User user = userRepository.findByUsername(principal.getName());
-        if (user == null) {
-            return new ArrayList<>();
-        }
-
-        // Use the user's ID to find created polls
-        List<Poll> createdPolls = pollRepository.findByOwnerId(user.getId());
-
-        // Use the user's ID to find votes
-        List<Vote> userVotes = voteRepository.findAllByUserId(user.getId());
-        List<String> votedPollIds = userVotes.stream()
-                .map(Vote::getPollId)
-                .collect(Collectors.toList());
-        List<Poll> votedOnPolls = pollRepository.findAllById(votedPollIds);
-
-        List<Poll> userActivityPolls = Stream.concat(createdPolls.stream(), votedOnPolls.stream())
-                .distinct()
-                .collect(Collectors.toList());
-
-        return userActivityPolls.stream()
-                .map(this::mapToPollResponse)
-                .collect(Collectors.toList());
     }
 
     private PollResponse mapToPollResponse(Poll poll) {
@@ -212,6 +201,8 @@ public class PollService {
         response.setCreatedAt(poll.getCreatedAt());
         response.setQuestion(poll.getQuestion());
         response.setOwnerUsername(poll.getOwnerUsername());
+        response.setVisibility(poll.getVisibility());
+        response.setShareLink(poll.getShareLink());
 
         if (poll.getOptions() != null) {
             response.setOptions(poll.getOptions().stream()
