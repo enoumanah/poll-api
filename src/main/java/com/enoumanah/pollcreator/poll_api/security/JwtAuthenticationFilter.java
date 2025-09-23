@@ -1,4 +1,4 @@
-package com.enoumanah.pollcreator.poll_api.config;
+package com.enoumanah.pollcreator.poll_api.security;
 
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;

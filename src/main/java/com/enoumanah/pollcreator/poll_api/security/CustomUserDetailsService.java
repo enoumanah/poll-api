@@ -1,4 +1,4 @@
-package com.enoumanah.pollcreator.poll_api.service;
+package com.enoumanah.pollcreator.poll_api.security;
 
 import com.enoumanah.pollcreator.poll_api.model.User;
 import com.enoumanah.pollcreator.poll_api.repository.UserRepository;

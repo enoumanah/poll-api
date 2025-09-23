@@ -1,5 +1,6 @@
 package com.enoumanah.pollcreator.poll_api.config;
 
+import com.enoumanah.pollcreator.poll_api.security.JwtAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
