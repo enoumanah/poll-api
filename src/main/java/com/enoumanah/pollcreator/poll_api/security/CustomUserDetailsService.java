@@ -1,4 +1,4 @@
-package com.enoumanah.pollcreator.poll_api.service;
+package com.enoumanah.pollcreator.poll_api.security; // Note the package name
 
 import com.enoumanah.pollcreator.poll_api.model.User;
 import com.enoumanah.pollcreator.poll_api.repository.UserRepository;
@@ -20,14 +20,10 @@ public class CustomUserDetailsService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-
         User user = userRepository.findByUsername(username);
-
         if (user == null) {
             throw new UsernameNotFoundException("User not found with username: " + username);
         }
-
-
 
         return org.springframework.security.core.userdetails.User
                 .withUsername(user.getUsername())
