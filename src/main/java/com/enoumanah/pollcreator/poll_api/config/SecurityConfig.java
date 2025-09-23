@@ -1,6 +1,7 @@
 package com.enoumanah.pollcreator.poll_api.config;
 
 import com.enoumanah.pollcreator.poll_api.security.JwtAuthenticationFilter;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -26,6 +27,9 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
+    @Value("${app.cors.allowed-origins}")
+    private String allowedOrigins;
+
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
     }
@@ -43,31 +47,23 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // 1. Apply CORS configuration first
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-
-                // 2. Disable CSRF as we are using JWTs
                 .csrf(csrf -> csrf.disable())
-
-                // 3. Configure authorization rules
                 .authorizeHttpRequests(auth -> auth
-                        // Allow all OPTIONS requests for CORS preflight
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-
-                        // Publicly accessible endpoints
+                        // *** THIS IS THE FIX ***
+                        // This rule explicitly allows anyone to access the /api/auth endpoints.
                         .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/polls/view/**").permitAll() // Assuming you want anyone to view a poll by link
 
-                        // All other requests must be authenticated
+                        // Allow public viewing of polls and results
+                        .requestMatchers(HttpMethod.GET, "/api/polls/**").permitAll()
+
+                        // All other requests require authentication
                         .anyRequest().authenticated()
                 )
-
-                // 4. Set session management to stateless
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 );
 
-        // 5. Add the JWT filter before the standard authentication filter
         http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
@@ -76,12 +72,11 @@ public class SecurityConfig {
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // IMPORTANT: Specify your frontend's exact origin
-        configuration.setAllowedOrigins(List.of("https://poll-scribe-63.lovable.app"));
-
+        // We split the comma-separated string from application.properties
+        configuration.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With"));
-        configuration.setAllowCredentials(true); // Important for cookies, authorization headers
+        configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
