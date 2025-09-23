@@ -28,7 +28,7 @@ public class PollService {
     private final PollRepository pollRepository;
     private final OptionRepository optionRepository;
     private final VoteRepository voteRepository;
-    private final UserRepository userRepository; // It's good practice to have this for user lookups
+    private final UserRepository userRepository;
 
     public PollService(PollRepository pollRepository, OptionRepository optionRepository, VoteRepository voteRepository, UserRepository userRepository) {
         this.pollRepository = pollRepository;
@@ -39,15 +39,14 @@ public class PollService {
 
     @Transactional
     public PollResponse createPoll(CreatePollRequest request, Authentication authentication) {
-        // CORRECT WAY TO GET USERNAME
         String username = authentication.getName();
         User user = userRepository.findByUsername(username);
 
         Poll poll = new Poll();
         poll.setQuestion(request.getQuestion());
         poll.setVisibility(request.getVisibility() != null ? request.getVisibility() : "public");
-        poll.setOwnerId(user.getId()); // Store the user's actual ID
-        poll.setOwnerUsername(username); // Store the username
+        poll.setOwnerId(user.getId());
+        poll.setOwnerUsername(username);
         poll.generateShareLinkIfPrivate();
 
         poll = pollRepository.save(poll);
@@ -72,7 +71,6 @@ public class PollService {
 
     @Transactional
     public void voteOnOption(String pollId, VoteRequest request, Authentication authentication) {
-        // CORRECT WAY TO GET USERNAME
         String username = authentication.getName();
         User user = userRepository.findByUsername(username);
 
@@ -96,13 +94,12 @@ public class PollService {
         Vote vote = new Vote();
         vote.setPollId(pollId);
         vote.setOptionId(option.getId());
-        vote.setUserId(user.getId()); // Store the user's actual ID
+        vote.setUserId(user.getId());
         voteRepository.save(vote);
     }
 
     @Transactional
     public void deletePoll(String id, Authentication authentication) {
-        // CORRECT WAY TO GET USERNAME
         String username = authentication.getName();
         User user = userRepository.findByUsername(username);
 
@@ -115,8 +112,6 @@ public class PollService {
 
         pollRepository.delete(poll);
     }
-
-    // --- Methods from previous steps (already correct) ---
 
     public PollResponse getPollById(String id, Principal principal) {
         Poll poll = pollRepository.findById(id)
@@ -134,7 +129,7 @@ public class PollService {
         List<Poll> publicPolls = pollRepository.findByVisibility("public");
 
         User user = userRepository.findByUsername(principal.getName());
-        List<Poll> userPolls = pollRepository.findByOwnerId(user.getId());
+        List<Poll> userPolls = (user != null) ? pollRepository.findByOwnerId(user.getId()) : new ArrayList<>();
 
         List<Poll> dashboardPolls = Stream.concat(publicPolls.stream(), userPolls.stream())
                 .distinct()
@@ -147,6 +142,9 @@ public class PollService {
 
     public List<PollResponse> getUserActivityPolls(Principal principal) {
         User user = userRepository.findByUsername(principal.getName());
+        if (user == null) {
+            return new ArrayList<>(); // Return empty list if user not found
+        }
 
         List<Poll> createdPolls = pollRepository.findByOwnerId(user.getId());
 
@@ -163,6 +161,44 @@ public class PollService {
         return userActivityPolls.stream()
                 .map(this::mapToPollResponse)
                 .collect(Collectors.toList());
+    }
+
+    public List<PollResponse> getAllPublicPolls() {
+        return pollRepository.findByVisibility("public").stream()
+                .map(this::mapToPollResponse)
+                .collect(Collectors.toList());
+    }
+
+    public PollResponse getPollByShareLink(String shareLink) {
+        Poll poll = pollRepository.findByShareLink(shareLink);
+        if (poll == null) {
+            throw new PollNotFoundException("Poll not found with share link: " + shareLink);
+        }
+        return mapToPollResponse(poll);
+    }
+
+    public PollResultsResponse getPollResults(String id) {
+        Poll poll = pollRepository.findById(id)
+                .orElseThrow(() -> new PollNotFoundException("Poll not found with ID: " + id));
+
+        long totalVotes = (poll.getOptions() != null) ? poll.getOptions().stream().mapToLong(Option::getVotes).sum() : 0;
+
+        PollResultsResponse response = new PollResultsResponse();
+        response.setQuestion(poll.getQuestion());
+        if (poll.getOptions() != null) {
+            response.setOptions(poll.getOptions().stream()
+                    .map(opt -> {
+                        PollResultsResponse.OptionResult res = new PollResultsResponse.OptionResult();
+                        res.setText(opt.getText());
+                        res.setVotes(opt.getVotes());
+                        res.setPercentage(totalVotes > 0 ? (opt.getVotes() * 100.0 / totalVotes) : 0.0);
+                        return res;
+                    })
+                    .collect(Collectors.toList()));
+        } else {
+            response.setOptions(new ArrayList<>());
+        }
+        return response;
     }
 
     private PollResponse mapToPollResponse(Poll poll) {
