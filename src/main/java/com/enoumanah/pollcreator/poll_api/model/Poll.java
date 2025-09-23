@@ -36,6 +36,10 @@ public class Poll {
     @Field("owner_id")
     private String ownerId;
 
+    @Field("owner_username")
+    private String ownerUsername;
+
+
     @Field("created_at")
     private Instant createdAt = Instant.now();
 

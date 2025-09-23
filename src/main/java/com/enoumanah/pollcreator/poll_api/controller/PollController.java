@@ -45,6 +45,16 @@ public class PollController {
         return ResponseEntity.ok(pollService.getAllPublicPolls()); // Call a new service method
     }
 
+    @GetMapping("/dashboard")
+    public ResponseEntity<List<PollResponse>> getDashboardPolls(Principal principal) {
+        return ResponseEntity.ok(pollService.getDashboardPolls(principal));
+    }
+
+    @GetMapping("/user-activity")
+    public ResponseEntity<List<PollResponse>> getUserActivityPolls(Principal principal) {
+        return ResponseEntity.ok(pollService.getUserActivityPolls(principal));
+    }
+
     @GetMapping("/share/{shareLink}")
     public ResponseEntity<PollResponse> getPollByShareLink(@PathVariable String shareLink) {
         return ResponseEntity.ok(pollService.getPollByShareLink(shareLink));

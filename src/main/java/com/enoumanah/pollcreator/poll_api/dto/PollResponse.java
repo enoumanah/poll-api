@@ -14,5 +14,6 @@ public class PollResponse {
     private Instant createdAt;
     private String question;
     private List<OptionResponse> options;
+    private String ownerUsername;
 
 }

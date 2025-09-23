@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.security.Principal;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 public class PollService {
@@ -39,6 +40,7 @@ public class PollService {
         poll.setQuestion(request.getQuestion());
         poll.setVisibility(request.getVisibility() != null ? request.getVisibility() : "public");
         poll.setOwnerId(ownerId);
+        poll.setOwnerUsername(ownerId);
         poll.generateShareLinkIfPrivate();
 
         // Save the poll first to generate its ID
@@ -62,6 +64,23 @@ public class PollService {
         pollRepository.save(poll);
 
         return mapToPollResponse(poll);
+    }
+
+    public List<PollResponse> getDashboardPolls(Principal principal) {
+        // First, get all public polls
+        List<Poll> publicPolls = pollRepository.findByVisibility("public");
+
+        // Then, get all polls (public and private) created by the current user
+        List<Poll> userPolls = pollRepository.findByOwnerId(principal.getName());
+
+        // Combine the two lists and remove duplicates
+        List<Poll> dashboardPolls = Stream.concat(publicPolls.stream(), userPolls.stream())
+                .distinct()
+                .collect(Collectors.toList());
+
+        return dashboardPolls.stream()
+                .map(this::mapToPollResponse)
+                .collect(Collectors.toList());
     }
 
 
@@ -155,11 +174,36 @@ public class PollService {
         return response;
     }
 
+    public List<PollResponse> getUserActivityPolls(Principal principal) {
+        String userId = principal.getName();
+
+        // 1. Get all polls created by the user
+        List<Poll> createdPolls = pollRepository.findByOwnerId(userId);
+
+        // 2. Get all polls the user has voted on
+        List<Vote> userVotes = voteRepository.findAllByUserId(userId);
+        List<String> votedPollIds = userVotes.stream()
+                .map(Vote::getPollId)
+                .collect(Collectors.toList());
+        List<Poll> votedOnPolls = pollRepository.findAllById(votedPollIds);
+
+        // 3. Combine the lists and remove duplicates
+        List<Poll> userActivityPolls = Stream.concat(createdPolls.stream(), votedOnPolls.stream())
+                .distinct()
+                .collect(Collectors.toList());
+
+        // 4. Map to the response DTO
+        return userActivityPolls.stream()
+                .map(this::mapToPollResponse)
+                .collect(Collectors.toList());
+    }
+
     private PollResponse mapToPollResponse(Poll poll) {
         PollResponse response = new PollResponse();
         response.setId(poll.getId());
         response.setCreatedAt(poll.getCreatedAt());
         response.setQuestion(poll.getQuestion());
+        response.setOwnerUsername(poll.getOwnerUsername());
         response.setOptions(poll.getOptions().stream()
                 .map(opt -> {
                     OptionResponse optRes = new OptionResponse();

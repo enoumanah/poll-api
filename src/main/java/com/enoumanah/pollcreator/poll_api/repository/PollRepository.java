@@ -8,4 +8,5 @@ import java.util.List;
 public interface PollRepository extends MongoRepository<Poll, String> {
     List<Poll> findByVisibility(String visibility);
     Poll findByShareLink(String shareLink);
+    List<Poll> findByOwnerId(String ownerId);
 }
