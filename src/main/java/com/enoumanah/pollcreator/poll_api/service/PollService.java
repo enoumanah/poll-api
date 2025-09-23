@@ -38,7 +38,6 @@ public class PollService {
         this.userRepository = userRepository;
     }
 
-    // Helper method to get user by principal
     private User getUserByPrincipal(Principal principal) {
         String username = principal.getName();
         User user = userRepository.findByUsername(username);
@@ -51,15 +50,12 @@ public class PollService {
     @Transactional
     public PollResponse createPoll(CreatePollRequest request, Authentication authentication) {
         User user = getUserByPrincipal(authentication);
-
         Poll poll = new Poll();
         poll.setQuestion(request.getQuestion());
         poll.setVisibility(request.getVisibility() != null ? request.getVisibility() : "public");
         poll.setOwnerId(user.getId());
         poll.setOwnerUsername(user.getUsername());
         poll.generateShareLinkIfPrivate();
-
-        // Save poll first to get an ID
         poll = pollRepository.save(poll);
 
         Poll finalPoll = poll;
@@ -71,40 +67,25 @@ public class PollService {
                     return option;
                 })
                 .collect(Collectors.toList());
-
         List<Option> savedOptions = optionRepository.saveAll(options);
         poll.setOptions(savedOptions);
-
         return mapToPollResponse(poll);
     }
 
     public List<PollResponse> getDashboardPolls(Principal principal) {
         User user = getUserByPrincipal(principal);
         List<Poll> userPolls = pollRepository.findByOwnerId(user.getId());
-        return userPolls.stream()
-                .map(this::mapToPollResponse)
-                .collect(Collectors.toList());
+        return userPolls.stream().map(this::mapToPollResponse).collect(Collectors.toList());
     }
 
     @Transactional
     public void voteOnOption(String pollId, VoteRequest request, Authentication authentication) {
         User user = getUserByPrincipal(authentication);
+        Poll poll = pollRepository.findById(pollId).orElseThrow(() -> new PollNotFoundException("Poll not found with ID: " + pollId));
+        Option option = optionRepository.findById(request.getOptionId()).orElseThrow(() -> new OptionNotFoundException("Option not found with ID: " + request.getOptionId()));
+        if (!option.getPollId().equals(pollId)) throw new InvalidVoteException("Option does not belong to this poll");
+        if (voteRepository.findByPollIdAndUserId(pollId, user.getId()) != null) throw new InvalidVoteException("User has already voted on this poll");
 
-        Poll poll = pollRepository.findById(pollId)
-                .orElseThrow(() -> new PollNotFoundException("Poll not found with ID: " + pollId));
-
-        Option option = optionRepository.findById(request.getOptionId())
-                .orElseThrow(() -> new OptionNotFoundException("Option not found with ID: " + request.getOptionId()));
-
-        if (!option.getPollId().equals(pollId)) {
-            throw new InvalidVoteException("Option does not belong to this poll");
-        }
-
-        if (voteRepository.findByPollIdAndUserId(pollId, user.getId()) != null) {
-            throw new InvalidVoteException("User has already voted on this poll");
-        }
-
-        // Atomically increment the vote count
         option.setVotes(option.getVotes() + 1);
         optionRepository.save(option);
 
@@ -116,83 +97,64 @@ public class PollService {
     }
 
     public PollResponse getPollById(String id, Principal principal) {
-        Poll poll = pollRepository.findById(id)
-                .orElseThrow(() -> new PollNotFoundException("Poll not found with ID: " + id));
-
-        if ("private".equals(poll.getVisibility()) && principal != null) {
-            User user = getUserByPrincipal(principal);
-            if (!poll.getOwnerId().equals(user.getId())) {
+        Poll poll = pollRepository.findById(id).orElseThrow(() -> new PollNotFoundException("Poll not found with ID: " + id));
+        if ("private".equals(poll.getVisibility())) {
+            if (principal == null || !poll.getOwnerUsername().equals(principal.getName())) {
                 throw new PollNotFoundException("Private poll - unauthorized access");
             }
-        } else if ("private".equals(poll.getVisibility()) && principal == null) {
-            throw new PollNotFoundException("Private poll - unauthorized access");
         }
         return mapToPollResponse(poll);
     }
 
     public List<PollResponse> getAllPublicPolls() {
-        return pollRepository.findByVisibility("public").stream()
-                .map(this::mapToPollResponse)
-                .collect(Collectors.toList());
+        return pollRepository.findByVisibility("public").stream().map(this::mapToPollResponse).collect(Collectors.toList());
     }
 
     public PollResponse getPollByShareLink(String shareLink) {
         Poll poll = pollRepository.findByShareLink(shareLink);
-        if (poll == null) {
-            throw new PollNotFoundException("Poll not found with share link: " + shareLink);
-        }
+        if (poll == null) throw new PollNotFoundException("Poll not found with share link: " + shareLink);
         return mapToPollResponse(poll);
     }
 
     @Transactional
     public void deletePoll(String id, Authentication authentication) {
         User user = getUserByPrincipal(authentication);
-        Poll poll = pollRepository.findById(id)
-                .orElseThrow(() -> new PollNotFoundException("Poll not found with ID: " + id));
+        Poll poll = pollRepository.findById(id).orElseThrow(() -> new PollNotFoundException("Poll not found with ID: " + id));
+        if (!poll.getOwnerId().equals(user.getId())) throw new RuntimeException("Unauthorized to delete this poll");
 
-        if (!poll.getOwnerId().equals(user.getId())) {
-            throw new RuntimeException("Unauthorized to delete this poll");
-        }
-
-        // *** FIX 1: EXPLICITLY DELETE RELATED DOCUMENTS ***
-        // 1. Delete all votes associated with this poll
         List<Vote> votes = voteRepository.findAllByPollId(id);
-        if (!votes.isEmpty()) {
-            voteRepository.deleteAll(votes);
-        }
+        if (!votes.isEmpty()) voteRepository.deleteAll(votes);
 
-        // 2. Delete all options associated with this poll
-        if (poll.getOptions() != null && !poll.getOptions().isEmpty()) {
-            optionRepository.deleteAll(poll.getOptions());
-        }
+        if (poll.getOptions() != null && !poll.getOptions().isEmpty()) optionRepository.deleteAll(poll.getOptions());
 
-        // 3. Finally, delete the poll itself
         pollRepository.delete(poll);
     }
 
     public PollResultsResponse getPollResults(String id) {
-        Poll poll = pollRepository.findById(id)
-                .orElseThrow(() -> new PollNotFoundException("Poll not found with ID: " + id));
-
+        Poll poll = pollRepository.findById(id).orElseThrow(() -> new PollNotFoundException("Poll not found with ID: " + id));
         List<Option> options = poll.getOptions() != null ? poll.getOptions() : new ArrayList<>();
         long totalVotes = options.stream().mapToLong(Option::getVotes).sum();
-
         PollResultsResponse response = new PollResultsResponse();
         response.setQuestion(poll.getQuestion());
-
-        response.setOptions(options.stream()
-                .map(opt -> {
-                    PollResultsResponse.OptionResult res = new PollResultsResponse.OptionResult();
-                    res.setText(opt.getText());
-                    res.setVotes(opt.getVotes());
-                    // *** FIX 2: PREVENT DIVISION BY ZERO ***
-                    // Only calculate percentage if totalVotes > 0, otherwise it's 0.0
-                    res.setPercentage(totalVotes > 0 ? ((double) opt.getVotes() / totalVotes) * 100.0 : 0.0);
-                    return res;
-                })
-                .collect(Collectors.toList()));
-
+        response.setOptions(options.stream().map(opt -> {
+            PollResultsResponse.OptionResult res = new PollResultsResponse.OptionResult();
+            res.setText(opt.getText());
+            res.setVotes(opt.getVotes());
+            res.setPercentage(totalVotes > 0 ? ((double) opt.getVotes() / totalVotes) * 100.0 : 0.0);
+            return res;
+        }).collect(Collectors.toList()));
         return response;
+    }
+
+    // *** THIS IS THE MISSING METHOD THAT CAUSED THE BUILD TO FAIL ***
+    public List<PollResponse> getUserActivityPolls(Principal principal) {
+        User user = getUserByPrincipal(principal);
+        List<Poll> createdPolls = pollRepository.findByOwnerId(user.getId());
+        List<Vote> userVotes = voteRepository.findAllByUserId(user.getId());
+        List<String> votedPollIds = userVotes.stream().map(Vote::getPollId).collect(Collectors.toList());
+        List<Poll> votedOnPolls = pollRepository.findAllById(votedPollIds);
+        List<Poll> userActivityPolls = Stream.concat(createdPolls.stream(), votedOnPolls.stream()).distinct().collect(Collectors.toList());
+        return userActivityPolls.stream().map(this::mapToPollResponse).collect(Collectors.toList());
     }
 
     private PollResponse mapToPollResponse(Poll poll) {
@@ -203,17 +165,14 @@ public class PollService {
         response.setOwnerUsername(poll.getOwnerUsername());
         response.setVisibility(poll.getVisibility());
         response.setShareLink(poll.getShareLink());
-
         if (poll.getOptions() != null) {
-            response.setOptions(poll.getOptions().stream()
-                    .map(opt -> {
-                        OptionResponse optRes = new OptionResponse();
-                        optRes.setId(opt.getId());
-                        optRes.setText(opt.getText());
-                        optRes.setVotes(opt.getVotes());
-                        return optRes;
-                    })
-                    .collect(Collectors.toList()));
+            response.setOptions(poll.getOptions().stream().map(opt -> {
+                OptionResponse optRes = new OptionResponse();
+                optRes.setId(opt.getId());
+                optRes.setText(opt.getText());
+                optRes.setVotes(opt.getVotes());
+                return optRes;
+            }).collect(Collectors.toList()));
         } else {
             response.setOptions(new ArrayList<>());
         }
