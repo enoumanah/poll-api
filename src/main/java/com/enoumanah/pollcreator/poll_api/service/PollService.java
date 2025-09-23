@@ -28,7 +28,7 @@ public class PollService {
     private final PollRepository pollRepository;
     private final OptionRepository optionRepository;
     private final VoteRepository voteRepository;
-    private final UserRepository userRepository;
+    private final UserRepository userRepository; // Correctly injected
 
     public PollService(PollRepository pollRepository, OptionRepository optionRepository, VoteRepository voteRepository, UserRepository userRepository) {
         this.pollRepository = pollRepository;
@@ -45,7 +45,7 @@ public class PollService {
         Poll poll = new Poll();
         poll.setQuestion(request.getQuestion());
         poll.setVisibility(request.getVisibility() != null ? request.getVisibility() : "public");
-        poll.setOwnerId(user.getId());
+        poll.setOwnerId(user.getId()); // Use the user's ID
         poll.setOwnerUsername(username);
         poll.generateShareLinkIfPrivate();
 
@@ -67,6 +67,26 @@ public class PollService {
         pollRepository.save(poll);
 
         return mapToPollResponse(poll);
+    }
+
+    public List<PollResponse> getDashboardPolls(Principal principal) {
+        // 1. Get all public polls
+        List<Poll> publicPolls = pollRepository.findByVisibility("public");
+
+        // 2. Find the current user by their username (from the JWT)
+        User user = userRepository.findByUsername(principal.getName());
+
+        // 3. Get all polls (public and private) created by the current user using their ID
+        List<Poll> userPolls = (user != null) ? pollRepository.findByOwnerId(user.getId()) : new ArrayList<>();
+
+        // 4. Combine the two lists, ensuring no duplicates
+        List<Poll> dashboardPolls = Stream.concat(publicPolls.stream(), userPolls.stream())
+                .distinct()
+                .collect(Collectors.toList());
+
+        return dashboardPolls.stream()
+                .map(this::mapToPollResponse)
+                .collect(Collectors.toList());
     }
 
     @Transactional
@@ -98,69 +118,18 @@ public class PollService {
         voteRepository.save(vote);
     }
 
-    @Transactional
-    public void deletePoll(String id, Authentication authentication) {
-        String username = authentication.getName();
-        User user = userRepository.findByUsername(username);
-
-        Poll poll = pollRepository.findById(id)
-                .orElseThrow(() -> new PollNotFoundException("Poll not found with ID: " + id));
-
-        if (!poll.getOwnerId().equals(user.getId())) {
-            throw new RuntimeException("Unauthorized to delete this poll");
-        }
-
-        pollRepository.delete(poll);
-    }
-
     public PollResponse getPollById(String id, Principal principal) {
         Poll poll = pollRepository.findById(id)
                 .orElseThrow(() -> new PollNotFoundException("Poll not found with ID: " + id));
 
         if ("private".equals(poll.getVisibility())) {
+            // Check against owner's username for private polls
             if (principal == null || !poll.getOwnerUsername().equals(principal.getName())) {
                 throw new PollNotFoundException("Private poll - unauthorized access");
             }
         }
+
         return mapToPollResponse(poll);
-    }
-
-    public List<PollResponse> getDashboardPolls(Principal principal) {
-        List<Poll> publicPolls = pollRepository.findByVisibility("public");
-
-        User user = userRepository.findByUsername(principal.getName());
-        List<Poll> userPolls = (user != null) ? pollRepository.findByOwnerId(user.getId()) : new ArrayList<>();
-
-        List<Poll> dashboardPolls = Stream.concat(publicPolls.stream(), userPolls.stream())
-                .distinct()
-                .collect(Collectors.toList());
-
-        return dashboardPolls.stream()
-                .map(this::mapToPollResponse)
-                .collect(Collectors.toList());
-    }
-
-    public List<PollResponse> getUserActivityPolls(Principal principal) {
-        User user = userRepository.findByUsername(principal.getName());
-        if (user == null) {
-            return new ArrayList<>(); // Return empty list if user not found
-        }
-
-        List<Poll> createdPolls = pollRepository.findByOwnerId(user.getId());
-
-        List<Vote> userVotes = voteRepository.findAllByUserId(user.getId());
-        List<String> votedPollIds = userVotes.stream()
-                .map(Vote::getPollId)
-                .collect(Collectors.toList());
-        List<Poll> votedOnPolls = pollRepository.findAllById(votedPollIds);
-
-        List<Poll> userActivityPolls = Stream.concat(createdPolls.stream(), votedOnPolls.stream())
-                .distinct()
-                .collect(Collectors.toList());
-
-        return userActivityPolls.stream()
-                .map(this::mapToPollResponse)
-                .collect(Collectors.toList());
     }
 
     public List<PollResponse> getAllPublicPolls() {
@@ -175,6 +144,21 @@ public class PollService {
             throw new PollNotFoundException("Poll not found with share link: " + shareLink);
         }
         return mapToPollResponse(poll);
+    }
+
+    @Transactional
+    public void deletePoll(String id, Authentication authentication) {
+        String username = authentication.getName();
+        User user = userRepository.findByUsername(username);
+
+        Poll poll = pollRepository.findById(id)
+                .orElseThrow(() -> new PollNotFoundException("Poll not found with ID: " + id));
+
+        if (!poll.getOwnerId().equals(user.getId())) {
+            throw new RuntimeException("Unauthorized to delete this poll");
+        }
+
+        pollRepository.delete(poll);
     }
 
     public PollResultsResponse getPollResults(String id) {
@@ -199,6 +183,29 @@ public class PollService {
             response.setOptions(new ArrayList<>());
         }
         return response;
+    }
+
+    public List<PollResponse> getUserActivityPolls(Principal principal) {
+        User user = userRepository.findByUsername(principal.getName());
+        if (user == null) {
+            return new ArrayList<>();
+        }
+
+        List<Poll> createdPolls = pollRepository.findByOwnerId(user.getId());
+
+        List<Vote> userVotes = voteRepository.findAllByUserId(user.getId());
+        List<String> votedPollIds = userVotes.stream()
+                .map(Vote::getPollId)
+                .collect(Collectors.toList());
+        List<Poll> votedOnPolls = pollRepository.findAllById(votedPollIds);
+
+        List<Poll> userActivityPolls = Stream.concat(createdPolls.stream(), votedOnPolls.stream())
+                .distinct()
+                .collect(Collectors.toList());
+
+        return userActivityPolls.stream()
+                .map(this::mapToPollResponse)
+                .collect(Collectors.toList());
     }
 
     private PollResponse mapToPollResponse(Poll poll) {
