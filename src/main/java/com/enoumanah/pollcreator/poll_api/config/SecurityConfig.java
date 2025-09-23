@@ -61,7 +61,9 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
+        // This correctly reads your frontend URL from application.properties
         configuration.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
+        // This correctly allows all the necessary methods for your app
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);

@@ -28,7 +28,7 @@ public class PollService {
     private final PollRepository pollRepository;
     private final OptionRepository optionRepository;
     private final VoteRepository voteRepository;
-    private final UserRepository userRepository; // Correctly injected
+    private final UserRepository userRepository;
 
     public PollService(PollRepository pollRepository, OptionRepository optionRepository, VoteRepository voteRepository, UserRepository userRepository) {
         this.pollRepository = pollRepository;
@@ -45,8 +45,8 @@ public class PollService {
         Poll poll = new Poll();
         poll.setQuestion(request.getQuestion());
         poll.setVisibility(request.getVisibility() != null ? request.getVisibility() : "public");
-        poll.setOwnerId(user.getId()); // Use the user's ID
-        poll.setOwnerUsername(username);
+        poll.setOwnerId(user.getId()); // Store the user's unique ID
+        poll.setOwnerUsername(username); // Store the username for display
         poll.generateShareLinkIfPrivate();
 
         poll = pollRepository.save(poll);
@@ -70,16 +70,14 @@ public class PollService {
     }
 
     public List<PollResponse> getDashboardPolls(Principal principal) {
-        // 1. Get all public polls
         List<Poll> publicPolls = pollRepository.findByVisibility("public");
 
-        // 2. Find the current user by their username (from the JWT)
+        // Find the user by their username to get their unique ID
         User user = userRepository.findByUsername(principal.getName());
 
-        // 3. Get all polls (public and private) created by the current user using their ID
+        // Use the user's ID to find the polls they own
         List<Poll> userPolls = (user != null) ? pollRepository.findByOwnerId(user.getId()) : new ArrayList<>();
 
-        // 4. Combine the two lists, ensuring no duplicates
         List<Poll> dashboardPolls = Stream.concat(publicPolls.stream(), userPolls.stream())
                 .distinct()
                 .collect(Collectors.toList());
@@ -114,7 +112,7 @@ public class PollService {
         Vote vote = new Vote();
         vote.setPollId(pollId);
         vote.setOptionId(option.getId());
-        vote.setUserId(user.getId());
+        vote.setUserId(user.getId()); // Store the user's unique ID
         voteRepository.save(vote);
     }
 
@@ -123,12 +121,10 @@ public class PollService {
                 .orElseThrow(() -> new PollNotFoundException("Poll not found with ID: " + id));
 
         if ("private".equals(poll.getVisibility())) {
-            // Check against owner's username for private polls
             if (principal == null || !poll.getOwnerUsername().equals(principal.getName())) {
                 throw new PollNotFoundException("Private poll - unauthorized access");
             }
         }
-
         return mapToPollResponse(poll);
     }
 
@@ -191,8 +187,10 @@ public class PollService {
             return new ArrayList<>();
         }
 
+        // Use the user's ID to find created polls
         List<Poll> createdPolls = pollRepository.findByOwnerId(user.getId());
 
+        // Use the user's ID to find votes
         List<Vote> userVotes = voteRepository.findAllByUserId(user.getId());
         List<String> votedPollIds = userVotes.stream()
                 .map(Vote::getPollId)
