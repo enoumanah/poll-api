@@ -9,8 +9,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class VoteRequest {
 
-    // The @NotNull is redundant since @NotBlank checks for null, empty, and whitespace-only strings.
-    // We'll keep it simple with just @NotBlank.
     @NotBlank(message = "Option Id cannot be blank")
     private String optionId;
 

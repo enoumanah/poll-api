@@ -46,6 +46,7 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/").permitAll()
                         // Endpoints that are always public
                         .requestMatchers("/api/auth/**", "/api/polls/share/**").permitAll()
                         // Endpoints that are public only for GET requests
