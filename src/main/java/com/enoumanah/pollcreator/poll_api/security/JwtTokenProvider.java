@@ -39,7 +39,7 @@ public class JwtTokenProvider {
     }
 
     private SecretKey key() {
-        // Use the Base64 decoder now that we have a valid key
+        // This correctly decodes the Base64 secret key from your properties file.
         return Keys.hmacShaKeyFor(Decoders.BASE64.decode(jwtSecret));
     }
 
