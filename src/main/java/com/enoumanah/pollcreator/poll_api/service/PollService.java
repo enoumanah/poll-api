@@ -50,12 +50,15 @@ public class PollService {
     @Transactional
     public PollResponse createPoll(CreatePollRequest request, Authentication authentication) {
         User user = getUserByPrincipal(authentication);
+
         Poll poll = new Poll();
         poll.setQuestion(request.getQuestion());
         poll.setVisibility(request.getVisibility() != null ? request.getVisibility() : "public");
         poll.setOwnerId(user.getId());
         poll.setOwnerUsername(user.getUsername());
         poll.generateShareLinkIfPrivate();
+
+        // Save poll first to get an ID
         poll = pollRepository.save(poll);
 
         Poll finalPoll = poll;
@@ -67,16 +70,37 @@ public class PollService {
                     return option;
                 })
                 .collect(Collectors.toList());
+
         List<Option> savedOptions = optionRepository.saveAll(options);
+
+        // *** FIX 1: UPDATE POLL WITH SAVED OPTIONS AND SAVE AGAIN ***
+        // This creates the link between the poll and its options in the database.
         poll.setOptions(savedOptions);
+        poll = pollRepository.save(poll);
+
         return mapToPollResponse(poll);
     }
 
     public List<PollResponse> getDashboardPolls(Principal principal) {
+        // *** FIX 2: CREATE A UNIFIED DASHBOARD FEED ***
+
+        // 1. Get all public polls from every user.
+        List<Poll> publicPolls = pollRepository.findByVisibility("public");
+
+        // 2. Get all polls (public and private) owned by the current user.
         User user = getUserByPrincipal(principal);
         List<Poll> userPolls = pollRepository.findByOwnerId(user.getId());
-        return userPolls.stream().map(this::mapToPollResponse).collect(Collectors.toList());
+
+        // 3. Combine the lists and remove duplicates.
+        List<Poll> dashboardPolls = Stream.concat(publicPolls.stream(), userPolls.stream())
+                .distinct()
+                .collect(Collectors.toList());
+
+        return dashboardPolls.stream()
+                .map(this::mapToPollResponse)
+                .collect(Collectors.toList());
     }
+
 
     @Transactional
     public void voteOnOption(String pollId, VoteRequest request, Authentication authentication) {
@@ -146,7 +170,6 @@ public class PollService {
         return response;
     }
 
-    // *** THIS IS THE MISSING METHOD THAT CAUSED THE BUILD TO FAIL ***
     public List<PollResponse> getUserActivityPolls(Principal principal) {
         User user = getUserByPrincipal(principal);
         List<Poll> createdPolls = pollRepository.findByOwnerId(user.getId());
@@ -179,3 +202,4 @@ public class PollService {
         return response;
     }
 }
+
