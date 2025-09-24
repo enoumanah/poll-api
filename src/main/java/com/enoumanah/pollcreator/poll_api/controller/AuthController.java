@@ -20,19 +20,28 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody LoginRequest loginRequest) {
         String token = authService.login(loginRequest);
-        return ResponseEntity.ok(new AuthResponse(token));
+        // Now we also return the username in the response
+        return ResponseEntity.ok(new AuthResponse(token, loginRequest.getUsername()));
     }
 
     @PostMapping("/register")
-    public ResponseEntity<String> register(@RequestBody RegisterRequest registerRequest) {
-        authService.register(registerRequest);
-        return new ResponseEntity<>("User registered successfully!", HttpStatus.CREATED);
+    public ResponseEntity<AuthResponse> register(@RequestBody RegisterRequest registerRequest) {
+        // The register method now also returns a token
+        String token = authService.register(registerRequest);
+        // We return the token and username upon successful registration
+        return new ResponseEntity<>(new AuthResponse(token, registerRequest.getUsername()), HttpStatus.CREATED);
     }
 }
 
-// Helper classes can remain in the same file or be moved to the dto package
 class AuthResponse {
     private String token;
-    public AuthResponse(String token) { this.token = token; }
+    private String username; // Add username to the response
+
+    public AuthResponse(String token, String username) {
+        this.token = token;
+        this.username = username;
+    }
+
     public String getToken() { return token; }
+    public String getUsername() { return username; } // Getter for username
 }

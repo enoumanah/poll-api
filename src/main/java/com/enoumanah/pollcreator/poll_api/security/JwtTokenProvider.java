@@ -3,6 +3,7 @@ package com.enoumanah.pollcreator.poll_api.security;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
@@ -10,7 +11,6 @@ import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.util.Date;
-import java.nio.charset.StandardCharsets;
 
 @Component
 public class JwtTokenProvider {
@@ -39,9 +39,8 @@ public class JwtTokenProvider {
     }
 
     private SecretKey key() {
-        // *** THIS IS THE ONLY CHANGE ***
-        // We now get the bytes directly from the string, instead of trying to decode it.
-        return Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
+        // Use the Base64 decoder now that we have a valid key
+        return Keys.hmacShaKeyFor(Decoders.BASE64.decode(jwtSecret));
     }
 
     public String getUsername(String token) {
@@ -65,4 +64,3 @@ public class JwtTokenProvider {
         }
     }
 }
-

@@ -31,7 +31,6 @@ public class AuthService {
     }
 
     public String login(LoginRequest loginRequest) {
-        // Let AuthenticationManager handle the password check
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         loginRequest.getUsername(),
@@ -39,12 +38,11 @@ public class AuthService {
                 )
         );
 
-        // If successful, set the authentication in the context and generate a token
         SecurityContextHolder.getContext().setAuthentication(authentication);
         return jwtTokenProvider.generateToken(authentication);
     }
 
-    public void register(RegisterRequest registerRequest) {
+    public String register(RegisterRequest registerRequest) { // Changed to return String
         if (userRepository.findByUsername(registerRequest.getUsername()) != null) {
             throw new IllegalArgumentException("Username is already taken!");
         }
@@ -53,7 +51,9 @@ public class AuthService {
         user.setUsername(registerRequest.getUsername());
         user.setEmail(registerRequest.getEmail());
         user.setPassword(passwordEncoder.encode(registerRequest.getPassword()));
-
         userRepository.save(user);
+
+        // Return the token upon successful registration
+        return jwtTokenProvider.generateTokenFromUsername(registerRequest.getUsername());
     }
 }
