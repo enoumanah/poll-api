@@ -164,7 +164,7 @@ public class PollService {
             PollResultsResponse.OptionResult res = new PollResultsResponse.OptionResult();
             res.setText(opt.getText());
             res.setVotes(opt.getVotes());
-            res.setPercentage(totalVotes > 0 ? ((double) opt.getVotes() / totalVotes) * 100.0 : 0.0);
+            res.setPercentage(totalVotes > 0 ? ((double) opt.getVotes() * 100.0 / totalVotes) : 0.0);
             return res;
         }).collect(Collectors.toList()));
         return response;
