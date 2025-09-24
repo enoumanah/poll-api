@@ -1,5 +1,6 @@
 package com.enoumanah.pollcreator.poll_api.model;
 
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -15,6 +16,7 @@ import java.util.UUID;
 @Document(collection = "polls")
 @NoArgsConstructor
 @Getter @Setter
+@EqualsAndHashCode
 public class Poll {
 
     @Id
