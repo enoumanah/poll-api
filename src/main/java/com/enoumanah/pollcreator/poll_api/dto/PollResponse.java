@@ -17,5 +17,6 @@ public class PollResponse {
     private String ownerUsername;
     private String visibility;
     private String shareLink;
+    private boolean hasVoted;
 
 }

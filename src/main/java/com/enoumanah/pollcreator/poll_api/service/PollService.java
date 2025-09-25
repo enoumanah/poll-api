@@ -80,10 +80,12 @@ public class PollService {
         poll.setOptions(savedOptions);
         poll = pollRepository.save(poll);
 
-        return mapToPollResponse(poll);
+        return mapToPollResponse(poll, authentication);
     }
 
     public List<PollResponse> getDashboardPolls(Principal principal) {
+        // *** FIX 2: CREATE A UNIFIED DASHBOARD FEED ***
+
         // 1. Get all public polls from every user.
         List<Poll> publicPolls = pollRepository.findByVisibility("public");
 
@@ -106,7 +108,7 @@ public class PollService {
 
         // 4. Convert the Map values back to a List and map to PollResponse.
         return dashboardPollsMap.values().stream()
-                .map(this::mapToPollResponse)
+                .map(poll -> mapToPollResponse(poll, principal))
                 .collect(Collectors.toList());
     }
 
@@ -136,17 +138,17 @@ public class PollService {
                 throw new PollNotFoundException("Private poll - unauthorized access");
             }
         }
-        return mapToPollResponse(poll);
+        return mapToPollResponse(poll, principal);
     }
 
     public List<PollResponse> getAllPublicPolls() {
-        return pollRepository.findByVisibility("public").stream().map(this::mapToPollResponse).collect(Collectors.toList());
+        return pollRepository.findByVisibility("public").stream().map(poll -> mapToPollResponse(poll, null)).collect(Collectors.toList());
     }
 
     public PollResponse getPollByShareLink(String shareLink) {
         Poll poll = pollRepository.findByShareLink(shareLink);
         if (poll == null) throw new PollNotFoundException("Poll not found with share link: " + shareLink);
-        return mapToPollResponse(poll);
+        return mapToPollResponse(poll, null);
     }
 
     @Transactional
@@ -179,6 +181,7 @@ public class PollService {
         }).collect(Collectors.toList()));
         return response;
     }
+
     public List<PollResponse> getUserActivityPolls(Principal principal) {
         User user = getUserByPrincipal(principal);
         List<Poll> createdPolls = pollRepository.findByOwnerId(user.getId());
@@ -186,10 +189,10 @@ public class PollService {
         List<String> votedPollIds = userVotes.stream().map(Vote::getPollId).collect(Collectors.toList());
         List<Poll> votedOnPolls = pollRepository.findAllById(votedPollIds);
         List<Poll> userActivityPolls = Stream.concat(createdPolls.stream(), votedOnPolls.stream()).distinct().collect(Collectors.toList());
-        return userActivityPolls.stream().map(this::mapToPollResponse).collect(Collectors.toList());
+        return userActivityPolls.stream().map(poll -> mapToPollResponse(poll, principal)).collect(Collectors.toList());
     }
 
-    private PollResponse mapToPollResponse(Poll poll) {
+    private PollResponse mapToPollResponse(Poll poll, Principal principal) {
         PollResponse response = new PollResponse();
         response.setId(poll.getId());
         response.setCreatedAt(poll.getCreatedAt());
@@ -208,7 +211,16 @@ public class PollService {
         } else {
             response.setOptions(new ArrayList<>());
         }
+
+        boolean hasVoted = false;
+        if (principal != null) {
+            User user = getUserByPrincipal(principal);
+            if (user != null) {
+                hasVoted = voteRepository.findByPollIdAndUserId(poll.getId(), user.getId()) != null;
+            }
+        }
+        response.setHasVoted(hasVoted);
+
         return response;
     }
 }
-
