@@ -15,6 +15,7 @@ public class PollResultsResponse {
     @Data
     @NoArgsConstructor
     public static class OptionResult {
+        private String id;
         private String text;
         private Long votes;
         private Double percentage;
