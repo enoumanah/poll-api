@@ -19,7 +19,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.security.Principal;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -82,8 +84,6 @@ public class PollService {
     }
 
     public List<PollResponse> getDashboardPolls(Principal principal) {
-        // *** FIX 2: CREATE A UNIFIED DASHBOARD FEED ***
-
         // 1. Get all public polls from every user.
         List<Poll> publicPolls = pollRepository.findByVisibility("public");
 
@@ -91,12 +91,21 @@ public class PollService {
         User user = getUserByPrincipal(principal);
         List<Poll> userPolls = pollRepository.findByOwnerId(user.getId());
 
-        // 3. Combine the lists and remove duplicates.
-        List<Poll> dashboardPolls = Stream.concat(publicPolls.stream(), userPolls.stream())
-                .distinct()
-                .collect(Collectors.toList());
+        // 3. Combine the lists and manually remove duplicates using a Map.
+        Map<String, Poll> dashboardPollsMap = new LinkedHashMap<>();
 
-        return dashboardPolls.stream()
+        // Add user's polls first to ensure they appear at the top
+        for (Poll poll : userPolls) {
+            dashboardPollsMap.put(poll.getId(), poll);
+        }
+
+        // Add public polls, which will overwrite any duplicates already added from the user's list
+        for (Poll poll : publicPolls) {
+            dashboardPollsMap.put(poll.getId(), poll);
+        }
+
+        // 4. Convert the Map values back to a List and map to PollResponse.
+        return dashboardPollsMap.values().stream()
                 .map(this::mapToPollResponse)
                 .collect(Collectors.toList());
     }

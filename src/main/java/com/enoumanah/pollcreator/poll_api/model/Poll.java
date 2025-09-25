@@ -13,7 +13,7 @@ import java.util.UUID;
 
 @Document(collection = "polls")
 @NoArgsConstructor
-@Data 
+@Data
 public class Poll {
 
     @Id
