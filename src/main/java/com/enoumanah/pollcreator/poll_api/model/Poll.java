@@ -1,11 +1,9 @@
 package com.enoumanah.pollcreator.poll_api.model;
 
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
+import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.mapping.DBRef; // Import this
+import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 
@@ -15,8 +13,7 @@ import java.util.UUID;
 
 @Document(collection = "polls")
 @NoArgsConstructor
-@Getter @Setter
-@EqualsAndHashCode
+@Data 
 public class Poll {
 
     @Id
@@ -40,7 +37,6 @@ public class Poll {
 
     @Field("owner_username")
     private String ownerUsername;
-
 
     @Field("created_at")
     private Instant createdAt = Instant.now();
