@@ -162,6 +162,7 @@ public class PollService {
         response.setQuestion(poll.getQuestion());
         response.setOptions(options.stream().map(opt -> {
             PollResultsResponse.OptionResult res = new PollResultsResponse.OptionResult();
+            res.setId(opt.getId());
             res.setText(opt.getText());
             res.setVotes(opt.getVotes());
             res.setPercentage(totalVotes > 0 ? ((double) opt.getVotes() * 100.0 / totalVotes) : 0.0);
@@ -169,7 +170,6 @@ public class PollService {
         }).collect(Collectors.toList()));
         return response;
     }
-
     public List<PollResponse> getUserActivityPolls(Principal principal) {
         User user = getUserByPrincipal(principal);
         List<Poll> createdPolls = pollRepository.findByOwnerId(user.getId());
