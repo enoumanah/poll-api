@@ -24,7 +24,7 @@ PollCreatorAPI is a robust, production-ready Spring Boot application designed fo
 - **Deployment**: Render (Docker-based)
 - **Build Tool**: Maven
 
-### Frontend (Built with Lovable)
+### Frontend (Partly Built with Lovable)
 - **Framework**: React (Vite)
 - **Styling**: Tailwind CSS with dark mode support
 - **Routing**: React Router
@@ -90,12 +90,12 @@ PollCreatorAPI is a robust, production-ready Spring Boot application designed fo
      - `POST /api/polls` (with `Authorization: Bearer <jwt>`): `{ "question": "Favorite color?", "options": ["Red", "Blue"], "visibility": "public" }`
    - Verify data in MongoDB Atlas (`polls`, `options`, `votes`, `users` collections).
 
-### Frontend (poll-pro-hq, Built with Lovable)
+### Frontend (pollhub, Partly Built with Lovable)
 
 1. **Clone the Frontend Repository**:
    ```bash
-   git clone https://github.com/enoumanah/poll-pro-hq.git
-   cd poll-pro-hq
+   git clone https://github.com/enoumanah/pollhub.git
+   cd pollhub
    ```
 
 2. **Install Dependencies**:
@@ -116,7 +116,7 @@ PollCreatorAPI is a robust, production-ready Spring Boot application designed fo
    ```
    - Frontend runs on `http://localhost:5173`.
 
-5. **Features (Built with Lovable)**:
+5. **Features (Partly Built with Lovable)**:
    - **Landing Page (/) (Public)**: Hero with "Create Polls in Seconds", "Get Started" (to /login), and feature cards (poll creation, voting, sharing). Smooth fade-in animations via Framer Motion.
    - **Login Page (/login)**: Form for username/password, stores JWT in localStorage, redirects to /dashboard.
    - **Dashboard (/dashboard, Protected)**: Lists user’s polls with delete buttons, links to /create, and shows "No polls" prompt if empty.
@@ -133,7 +133,7 @@ PollCreatorAPI is a robust, production-ready Spring Boot application designed fo
      git push origin main
      ```
    - In Vercel dashboard:
-     - Create a new project, link to `poll-pro-hq` repo.
+     - Create a new project, link to `pollhub` repo.
      - Set env var: `VITE_API_URL=https://poll-api-7doi.onrender.com/api`.
      - Deploy and verify (e.g., `https://poll-pro-hq.vercel.app`).
 
@@ -173,7 +173,7 @@ poll-api/
 
 ### Frontend (poll-pro-hq, Built with Lovable)
 ```
-poll-pro-hq/
+pollhub/
 ├── src/
 │   ├── components/     # Navbar, Footer, PollCard, etc.
 │   ├── pages/         # Landing, Login, Dashboard, CreatePoll
@@ -227,4 +227,4 @@ MIT License. See [LICENSE](LICENSE) for details.
 
 ---
 
-Built with ❤️ by Eno. Connect on [Linkdin](https://www.linkedin.com/in/eno-umanah) or [email](mailto:umanaheno10@gmail.com).
+Built by Eno. Connect on [Linkdin](https://www.linkedin.com/in/eno-umanah) or [email](mailto:umanaheno10@gmail.com).
