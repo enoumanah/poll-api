@@ -171,7 +171,7 @@ poll-api/
 ├── pom.xml             # Maven dependencies
 ```
 
-### Frontend (poll-pro-hq, Built with Lovable)
+### Frontend (pollhub)
 ```
 pollhub/
 ├── src/
