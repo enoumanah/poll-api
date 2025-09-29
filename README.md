@@ -60,7 +60,7 @@ https://www.loom.com/share/f07998fabd094c04908cb9c1ce4e3a61?sid=421fdc82-6c8f-4a
      ```properties
      spring.application.name=PollCreatorAPI
      spring.profiles.active=local
-     spring.data.mongodb.uri=mongodb+srv://eno:<your-mongodb-password>@cluster0.qev4xg5.mongodb.net/polls?retryWrites=true&w=majority
+     spring.data.mongodb.uri=mongodb+srv://<your-username>:<your-mongodb-password>@cluster0.qev4xg5.mongodb.net/polls?retryWrites=true&w=majority
      spring.data.mongodb.database=polls
      spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration,org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
      app.jwt.secret=<your-strong-secret-key>
@@ -69,7 +69,7 @@ https://www.loom.com/share/f07998fabd094c04908cb9c1ce4e3a61?sid=421fdc82-6c8f-4a
      logging.level.org.springframework.security=DEBUG
      logging.level.org.springframework.data.mongodb=DEBUG
      ```
-     - Replace `<your-mongodb-password>` and `<your-strong-secret-key>` (64-char random key, e.g., from https://randomkeygen.com/).
+     - Replace `<your-mongodb-password>`, `<your-username>` and `<your-strong-secret-key>` (64-char random key, e.g., from https://randomkeygen.com/).
    - For production (`src/main/resources/application-prod.properties`):
      ```properties
      spring.data.mongodb.uri=${MONGODB_URI}
