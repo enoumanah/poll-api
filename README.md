@@ -34,7 +34,7 @@ PollCreatorAPI is a robust, production-ready Spring Boot application designed fo
 
 ## Demo
 
-[https://www.loom.com/share/f07998fabd094c04908cb9c1ce4e3a61?sid=421fdc82-6c8f-4a20-8441-f79daf5b26fc]
+https://www.loom.com/share/f07998fabd094c04908cb9c1ce4e3a61?sid=421fdc82-6c8f-4a20-8441-f79daf5b26fc
 
 ## Prerequisites
 
